@@ -42,11 +42,12 @@ export default function Login() {
     <div className="auth-page">
       <div className="auth-left">
         <div className="auth-left-inner">
-          <div className="auth-brand">
-            <span className="brand-dot" style={{ width: 32, height: 32, borderRadius: 10 }} />
-            CampusVote
-          </div>
-          <h1 className="auth-headline">Your campus.<br />Your voice.</h1>
+          <img 
+  src="/src/assets/image1.jpg" 
+  alt="Voting illustration"
+  style={{ width: '100%', maxWidth: 380, borderRadius: 16, marginBottom: '1.5rem' }}
+/>
+          <h1 className="auth-headline">Your campus,<br />Your voice</h1>
           <p className="auth-desc">Secure, transparent elections for CHRIST University students and administrators.</p>
           <div className="auth-stats">
             <div className="auth-stat"><span className="stat-num">5</span><span className="stat-label">Active Elections</span></div>
@@ -84,10 +85,7 @@ export default function Login() {
 
           <p className="auth-footer">Don't have an account? <Link to="/register">Register here</Link></p>
 
-          <div className="demo-hint">
-            <p>Demo — Voter: <code>rewa@christuniversity.in</code> / <code>voter123</code></p>
-            <p>Admin: <code>admin@christuniversity.in</code> / <code>admin123</code></p>
-          </div>
+         
         </div>
       </div>
     </div>

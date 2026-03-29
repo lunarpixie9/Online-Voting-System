@@ -41,13 +41,12 @@
   font-weight: 400;
 }
 
-.auth-desc { color: var(--text-muted); font-size: 15px; line-height: 1.7; margin-bottom: 2.5rem; }
+.auth-desc { color:rgb(67, 67, 67); font-size: 17px; line-height: 1.7; margin-bottom: 2.5rem; }
 
 .auth-stats { display: flex; gap: 2rem; }
 .auth-stat { display: flex; flex-direction: column; gap: 2px; }
-.stat-num { font-size: 22px; font-weight: 600; color: var(--purple); }
-.stat-label { font-size: 12px; color: var(--text-muted); }
-
+.stat-num { font-size: 32px; font-weight: 600; color: var(--purple); }
+.stat-label { font-size: 15px; color:rgb(35, 34, 34); }
 .auth-right {
   display: flex;
   align-items: center;
