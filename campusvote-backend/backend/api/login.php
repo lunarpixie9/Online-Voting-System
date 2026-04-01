@@ -2,18 +2,19 @@
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
-// api/login.php — Login for Voter and Admin
-require_once '../config/db.php';
 
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit(); }
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(["success" => false, "message" => "Method not allowed"]);
     exit();
 }
 
+require_once '../config/db.php';
+
 $data  = json_decode(file_get_contents("php://input"), true);
 $email = trim($data['email']    ?? '');
 $pass  = trim($data['password'] ?? '');
-$role  = trim($data['role']     ?? 'voter'); // 'voter' or 'admin'
+$role  = trim($data['role']     ?? 'voter');
 
 if (!$email || !$pass) {
     echo json_encode(["success" => false, "message" => "Email and password required"]);
@@ -49,13 +50,14 @@ if ($role === 'admin') {
     ]);
 
 } else {
-    $stmt = $conn->prepare("SELECT voter_id, name, password FROM Voter WHERE email = ?");
+    // Query RegisteredUser instead of Voter
+    $stmt = $conn->prepare("SELECT user_id, name, password FROM RegisteredUser WHERE email = ?");
     $stmt->bind_param("s", $email);
     $stmt->execute();
     $result = $stmt->get_result();
 
     if ($result->num_rows === 0) {
-        echo json_encode(["success" => false, "message" => "Voter not found"]);
+        echo json_encode(["success" => false, "message" => "User not found"]);
         $stmt->close(); $conn->close(); exit();
     }
 
@@ -67,11 +69,11 @@ if ($role === 'admin') {
     }
 
     echo json_encode([
-        "success"   => true,
-        "role"      => "voter",
-        "voter_id"  => $user['voter_id'],
-        "name"      => $user['name'],
-        "email"     => $email
+        "success"  => true,
+        "role"     => "voter",
+        "voter_id" => $user['user_id'],  // user_id from RegisteredUser used as voter_id
+        "name"     => $user['name'],
+        "email"    => $email
     ]);
 }
 

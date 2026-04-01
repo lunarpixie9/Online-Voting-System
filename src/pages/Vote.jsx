@@ -30,12 +30,18 @@ export default function Vote() {
   }, [electionId]);
 
   const handleSubmit = async () => {
-    if (!selected) return setError('Please select a candidate.');
-    setError('');
-    const data = await api.castVote(user.voter_id, selected, electionId);
-    if (data.success) setSubmitted(true);
-    else setError(data.message);
-  };
+  if (!selected) return setError('Please select a candidate.');
+  if (!user?.voter_id) return setError('Session error. Please log in again.');
+
+  setError('');
+  const data = await api.castVote(user.voter_id, selected, electionId);
+
+  if (data.success || data.message === 'You have already voted in this election') {
+    setSubmitted(true); // show success screen either way
+  } else {
+    setError(data.message);
+  }
+};
 
   if (loading) return <p style={{ padding: '3rem', color: 'var(--text-muted)' }}>Loading...</p>;
 

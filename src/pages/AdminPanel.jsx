@@ -16,16 +16,19 @@ export default function AdminPanel() {
 
   const flash = (msg) => { setSuccessMsg(msg); setTimeout(() => setSuccessMsg(''), 3000); };
 
-  const loadElections = () => {
-    api.getElections().then(data => {
-      if (data.success) setElections(data.elections);
-    });
+  const loadElections = async () => {
+    const data = await api.getElections();
+    if (data.success) setElections(data.elections);
   };
 
-  const loadCandidates = (election_id) => {
-    api.getCandidates(election_id).then(data => {
-      if (data.success) setCandidates(prev => [...prev.filter(c => c.election_id != election_id), ...data.candidates]);
-    });
+  // Fix: load ALL candidates once, not per-election (avoids duplicates)
+  const loadAllCandidates = async (electionList) => {
+    const all = [];
+    for (const e of electionList) {
+      const data = await api.getCandidates(e.election_id);
+      if (data.success) all.push(...data.candidates);
+    }
+    setCandidates(all); // replace, not append
   };
 
   useEffect(() => {
@@ -33,10 +36,25 @@ export default function AdminPanel() {
   }, []);
 
   useEffect(() => {
-    elections.forEach(e => loadCandidates(e.election_id));
+    if (elections.length > 0) loadAllCandidates(elections);
   }, [elections]);
 
   const totalVotes = candidates.reduce((s, c) => s + parseInt(c.votes || 0), 0);
+
+  const handleStatusChange = async (election_id, newStatus) => {
+    const res = await fetch('http://localhost/voting-backend/api/update_election_status.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ election_id, status: newStatus }),
+    });
+    const d = await res.json();
+    if (d.success) {
+      flash(`Status updated to "${newStatus}"`);
+      loadElections(); // reload to reflect change
+    } else {
+      alert('Failed to update status: ' + d.message);
+    }
+  };
 
   const handleCreateElection = async (e) => {
     e.preventDefault();
@@ -50,6 +68,8 @@ export default function AdminPanel() {
       flash('Election created!');
       setNewElection({ title: '', description: '', start_date: '', end_date: '', icon: '🗳️' });
       loadElections();
+    } else {
+      alert('Failed: ' + data.message);
     }
   };
 
@@ -64,7 +84,9 @@ export default function AdminPanel() {
     if (data.success) {
       flash('Candidate added!');
       setNewCandidate({ name: '', party: '', bio: '', election_id: '' });
-      loadCandidates(newCandidate.election_id);
+      loadElections(); // triggers loadAllCandidates via useEffect
+    } else {
+      alert('Failed: ' + data.message);
     }
   };
 
@@ -78,9 +100,9 @@ export default function AdminPanel() {
           <p className="sidebar-user">{user?.username || user?.name}</p>
         </div>
         {[
-          { id: 'overview', label: 'Overview', icon: '◉' },
-          { id: 'elections', label: 'Elections', icon: '⊞' },
-          { id: 'candidates', label: 'Candidates', icon: '⊕' },
+          { id: 'overview',   label: 'Overview',    icon: '◉' },
+          { id: 'elections',  label: 'Elections',   icon: '⊞' },
+          { id: 'candidates', label: 'Candidates',  icon: '⊕' },
         ].map(item => (
           <button key={item.id} className={`sidebar-btn ${tab === item.id ? 'active' : ''}`} onClick={() => setTab(item.id)}>
             <span>{item.icon}</span> {item.label}
@@ -94,6 +116,7 @@ export default function AdminPanel() {
       <div className="admin-content">
         {successMsg && <div className="alert alert-success">{successMsg}</div>}
 
+        {/* OVERVIEW TAB */}
         {tab === 'overview' && (
           <div>
             <h1 className="admin-title">Overview</h1>
@@ -106,7 +129,7 @@ export default function AdminPanel() {
             <h2 className="section-title">All Elections</h2>
             <div className="admin-table-wrap">
               <table className="admin-table">
-                <thead><tr><th>Title</th><th>Status</th><th>Start</th><th>End</th></tr></thead>
+                <thead><tr><th>Title</th><th>Status</th><th>Start</th><th>End</th><th>Change Status</th></tr></thead>
                 <tbody>
                   {elections.map(e => (
                     <tr key={e.election_id}>
@@ -114,6 +137,17 @@ export default function AdminPanel() {
                       <td><span className={`badge badge-${e.status === 'active' ? 'open' : e.status === 'upcoming' ? 'upcoming' : 'closed'}`}>{e.status}</span></td>
                       <td>{e.start_date}</td>
                       <td>{e.end_date}</td>
+                      <td>
+                        <select
+                          value={e.status}
+                          onChange={(evt) => handleStatusChange(e.election_id, evt.target.value)}
+                          style={{ padding: '4px 8px', borderRadius: 6, fontSize: 13 }}
+                        >
+                          <option value="upcoming">upcoming</option>
+                          <option value="active">active</option>
+                          <option value="closed">closed</option>
+                        </select>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -122,6 +156,7 @@ export default function AdminPanel() {
           </div>
         )}
 
+        {/* ELECTIONS TAB */}
         {tab === 'elections' && (
           <div>
             <h1 className="admin-title">Create Election</h1>
@@ -156,9 +191,28 @@ export default function AdminPanel() {
                 <button type="submit" className="btn btn-primary">Create Election</button>
               </form>
             </div>
+
+            {/* Also show existing elections in this tab */}
+            <h2 className="section-title" style={{ marginTop: '2rem' }}>Existing Elections</h2>
+            <div className="admin-table-wrap">
+              <table className="admin-table">
+                <thead><tr><th>Title</th><th>Status</th><th>Start</th><th>End</th></tr></thead>
+                <tbody>
+                  {elections.map(e => (
+                    <tr key={e.election_id}>
+                      <td>{e.title}</td>
+                      <td><span className={`badge badge-${e.status === 'active' ? 'open' : e.status === 'upcoming' ? 'upcoming' : 'closed'}`}>{e.status}</span></td>
+                      <td>{e.start_date}</td>
+                      <td>{e.end_date}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
+        {/* CANDIDATES TAB */}
         {tab === 'candidates' && (
           <div>
             <h1 className="admin-title">Add Candidate</h1>
@@ -193,7 +247,7 @@ export default function AdminPanel() {
                 <thead><tr><th>Name</th><th>Party</th><th>Election</th></tr></thead>
                 <tbody>
                   {candidates.map(c => (
-                    <tr key={c.candidate_id}>
+                    <tr key={`${c.candidate_id}-${c.election_id}`}>
                       <td style={{ fontWeight: 500 }}>{c.name}</td>
                       <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{c.party}</td>
                       <td style={{ fontSize: 13 }}>{elections.find(e => e.election_id == c.election_id)?.title}</td>
