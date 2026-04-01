@@ -36,7 +36,7 @@ export default function Register() {
       <div className="auth-left">
         <div className="auth-left-inner">
           <img
-            src="/src/assets/voting-illustration.jpg"
+            src="/src/assets/image1.jpg"
             alt="Voting illustration"
             style={{ width: '100%', maxWidth: 380, borderRadius: 16, marginBottom: '1.5rem' }}
           />

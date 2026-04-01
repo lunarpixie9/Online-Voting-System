@@ -1,12 +1,7 @@
 <?php
-// ─────────────────────────────────────────
-// Database Configuration
-// Place this file in XAMPP's htdocs/voting-backend/config/
-// ─────────────────────────────────────────
-
 define('DB_HOST', 'localhost');
 define('DB_USER', 'root');
-define('DB_PASS', '');           // default XAMPP password is empty
+define('DB_PASS', '');
 define('DB_NAME', 'voting_system');
 
 function getDB() {
@@ -21,16 +16,4 @@ function getDB() {
     }
 
     return $conn;
-}
-
-// Allow cross-origin requests from React dev server
-header("Access-Control-Allow-Origin: http://localhost:3000");
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type");
-header("Content-Type: application/json");
-
-// Handle preflight OPTIONS request
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit();
 }
