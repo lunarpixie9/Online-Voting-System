@@ -1,49 +1,51 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { mockElections, mockCandidates, castVote, hasVoted } from '../utils/mockData';
+import { api } from '../utils/api';
 import './Vote.css';
 
 export default function Vote() {
   const { electionId } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const id = parseInt(electionId);
-
-  const election = mockElections.find(e => e.election_id === id);
-  const candidates = mockCandidates[id] || [];
+  const [candidates, setCandidates] = useState([]);
+  const [election, setElection] = useState(null);
   const [selected, setSelected] = useState(null);
   const [confirmed, setConfirmed] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  if (!election) return <div style={{ padding: '3rem', textAlign: 'center' }}>Election not found.</div>;
-  if (hasVoted(user?.voter_id, id)) return (
-    <div className="vote-done">
-      <div className="vote-done-icon">✓</div>
-      <h2>You've already voted</h2>
-      <p>Your vote for this election has been recorded.</p>
-      <button className="btn btn-primary" onClick={() => navigate(`/results/${id}`)}>View Results</button>
-    </div>
-  );
+  useEffect(() => {
+    api.getCandidates(electionId).then(data => {
+      if (data.success) setCandidates(data.candidates);
+      setLoading(false);
+    });
+    api.getElections().then(data => {
+      if (data.success) {
+        const e = data.elections.find(e => e.election_id == electionId);
+        setElection(e);
+      }
+    });
+  }, [electionId]);
 
   const handleSubmit = async () => {
-    if (!selected) return setError('Please select a candidate before submitting.');
+    if (!selected) return setError('Please select a candidate.');
     setError('');
-    setConfirmed(false);
-
-    const success = castVote(user.voter_id, id, selected);
-    if (success) setSubmitted(true);
-    else setError('Could not cast vote. Please try again.');
+    const data = await api.castVote(user.voter_id, selected, electionId);
+    if (data.success) setSubmitted(true);
+    else setError(data.message);
   };
+
+  if (loading) return <p style={{ padding: '3rem', color: 'var(--text-muted)' }}>Loading...</p>;
 
   if (submitted) return (
     <div className="vote-done">
       <div className="vote-done-icon success">✓</div>
       <h2>Vote cast successfully!</h2>
-      <p>Your vote has been recorded securely. Thank you for participating.</p>
+      <p>Your vote has been recorded securely.</p>
       <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-        <button className="btn btn-primary" onClick={() => navigate(`/results/${id}`)}>View Results</button>
+        <button className="btn btn-primary" onClick={() => navigate(`/results/${electionId}`)}>View Results</button>
         <button className="btn btn-outline" onClick={() => navigate('/dashboard')}>Back to Elections</button>
       </div>
     </div>
@@ -53,17 +55,8 @@ export default function Vote() {
     <div className="vote-page">
       <div className="vote-header">
         <button className="btn btn-ghost" style={{ padding: '6px 12px', fontSize: 13 }} onClick={() => navigate('/dashboard')}>← Back</button>
-        <div>
-          <h1>{election.title}</h1>
-          <p>{election.description}</p>
-        </div>
-        <div className="vote-step">
-          <span className={`step ${!selected ? 'active' : 'done'}`}>1. Choose</span>
-          <span className="step-line" />
-          <span className={`step ${selected && !submitted ? 'active' : ''}`}>2. Confirm</span>
-          <span className="step-line" />
-          <span className={`step ${submitted ? 'done' : ''}`}>3. Done</span>
-        </div>
+        <h1>{election?.title}</h1>
+        <p>{election?.description}</p>
       </div>
 
       {error && <div className="alert alert-error" style={{ maxWidth: 700, margin: '0 auto 1rem' }}>{error}</div>}
@@ -93,7 +86,7 @@ export default function Vote() {
         {confirmed && (
           <div className="confirm-box">
             <p>You are voting for <strong>{candidates.find(c => c.candidate_id === selected)?.name}</strong>. This cannot be undone.</p>
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
               <button className="btn btn-primary" onClick={handleSubmit}>Cast My Vote</button>
               <button className="btn btn-ghost" onClick={() => setConfirmed(false)}>Go Back</button>
             </div>

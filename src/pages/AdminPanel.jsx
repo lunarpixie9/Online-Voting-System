@@ -1,48 +1,74 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { mockElections, mockCandidates } from '../utils/mockData';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../utils/api';
 import './Admin.css';
 
 export default function AdminPanel() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState('overview');
-  const [elections, setElections] = useState(mockElections);
+  const [elections, setElections] = useState([]);
+  const [candidates, setCandidates] = useState([]);
   const [newElection, setNewElection] = useState({ title: '', description: '', start_date: '', end_date: '', icon: '🗳️' });
   const [newCandidate, setNewCandidate] = useState({ name: '', party: '', bio: '', election_id: '' });
   const [successMsg, setSuccessMsg] = useState('');
-  const [candidates, setCandidates] = useState({ ...mockCandidates });
-
-  const icons = ['🗳️', '🎓', '🏛️', '🎭', '💻', '⚽', '🎨', '📚'];
 
   const flash = (msg) => { setSuccessMsg(msg); setTimeout(() => setSuccessMsg(''), 3000); };
 
-  const handleCreateElection = (e) => {
-    e.preventDefault();
-    const id = elections.length + 1;
-    const created = { ...newElection, election_id: id, status: 'upcoming', admin_id: user.admin_id };
-    mockElections.push(created);
-    setElections([...mockElections]);
-    mockCandidates[id] = [];
-    setCandidates({ ...mockCandidates });
-    setNewElection({ title: '', description: '', start_date: '', end_date: '', icon: '🗳️' });
-    flash('Election created successfully!');
+  const loadElections = () => {
+    api.getElections().then(data => {
+      if (data.success) setElections(data.elections);
+    });
   };
 
-  const handleAddCandidate = (e) => {
-    e.preventDefault();
-    const eid = parseInt(newCandidate.election_id);
-    if (!mockCandidates[eid]) mockCandidates[eid] = [];
-    const id = Object.values(mockCandidates).flat().length + 1;
-    mockCandidates[eid].push({ ...newCandidate, candidate_id: id, election_id: eid, votes: 0 });
-    setCandidates({ ...mockCandidates });
-    setNewCandidate({ name: '', party: '', bio: '', election_id: '' });
-    flash('Candidate added successfully!');
+  const loadCandidates = (election_id) => {
+    api.getCandidates(election_id).then(data => {
+      if (data.success) setCandidates(prev => [...prev.filter(c => c.election_id != election_id), ...data.candidates]);
+    });
   };
 
-  const totalVotes = Object.values(mockCandidates).flat().reduce((s, c) => s + c.votes, 0);
-  const totalVoters = 1;
+  useEffect(() => {
+    loadElections();
+  }, []);
+
+  useEffect(() => {
+    elections.forEach(e => loadCandidates(e.election_id));
+  }, [elections]);
+
+  const totalVotes = candidates.reduce((s, c) => s + parseInt(c.votes || 0), 0);
+
+  const handleCreateElection = async (e) => {
+    e.preventDefault();
+    const res = await fetch('http://localhost/voting-backend/api/elections.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...newElection, admin_id: user.admin_id }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      flash('Election created!');
+      setNewElection({ title: '', description: '', start_date: '', end_date: '', icon: '🗳️' });
+      loadElections();
+    }
+  };
+
+  const handleAddCandidate = async (e) => {
+    e.preventDefault();
+    const res = await fetch('http://localhost/voting-backend/api/candidates.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newCandidate),
+    });
+    const data = await res.json();
+    if (data.success) {
+      flash('Candidate added!');
+      setNewCandidate({ name: '', party: '', bio: '', election_id: '' });
+      loadCandidates(newCandidate.election_id);
+    }
+  };
+
+  const icons = ['🗳️', '🎓', '🏛️', '🎭', '💻', '⚽', '🎨', '📚'];
 
   return (
     <div className="admin-page">
@@ -55,13 +81,12 @@ export default function AdminPanel() {
           { id: 'overview', label: 'Overview', icon: '◉' },
           { id: 'elections', label: 'Elections', icon: '⊞' },
           { id: 'candidates', label: 'Candidates', icon: '⊕' },
-          { id: 'voters', label: 'Voters', icon: '⊙' },
         ].map(item => (
           <button key={item.id} className={`sidebar-btn ${tab === item.id ? 'active' : ''}`} onClick={() => setTab(item.id)}>
             <span>{item.icon}</span> {item.label}
           </button>
         ))}
-        <button className="sidebar-btn" style={{ marginTop: 'auto', color: 'var(--danger)' }} onClick={() => navigate('/login')}>
+        <button className="sidebar-btn" style={{ marginTop: 'auto', color: 'var(--danger)' }} onClick={() => { logout(); navigate('/login'); }}>
           <span>↩</span> Logout
         </button>
       </div>
@@ -74,20 +99,19 @@ export default function AdminPanel() {
             <h1 className="admin-title">Overview</h1>
             <div className="stats-grid">
               <div className="stat-card"><p className="stat-label">Total Elections</p><p className="stat-val">{elections.length}</p></div>
-              <div className="stat-card"><p className="stat-label">Active Elections</p><p className="stat-val">{elections.filter(e => e.status === 'active').length}</p></div>
-              <div className="stat-card"><p className="stat-label">Total Candidates</p><p className="stat-val">{Object.values(mockCandidates).flat().length}</p></div>
-              <div className="stat-card"><p className="stat-label">Total Votes Cast</p><p className="stat-val">{totalVotes}</p></div>
+              <div className="stat-card"><p className="stat-label">Active</p><p className="stat-val">{elections.filter(e => e.status === 'active').length}</p></div>
+              <div className="stat-card"><p className="stat-label">Candidates</p><p className="stat-val">{candidates.length}</p></div>
+              <div className="stat-card"><p className="stat-label">Votes Cast</p><p className="stat-val">{totalVotes}</p></div>
             </div>
             <h2 className="section-title">All Elections</h2>
             <div className="admin-table-wrap">
               <table className="admin-table">
-                <thead><tr><th>Title</th><th>Status</th><th>Candidates</th><th>Start</th><th>End</th></tr></thead>
+                <thead><tr><th>Title</th><th>Status</th><th>Start</th><th>End</th></tr></thead>
                 <tbody>
                   {elections.map(e => (
                     <tr key={e.election_id}>
-                      <td>{e.icon} {e.title}</td>
+                      <td>🗳️ {e.title}</td>
                       <td><span className={`badge badge-${e.status === 'active' ? 'open' : e.status === 'upcoming' ? 'upcoming' : 'closed'}`}>{e.status}</span></td>
-                      <td>{mockCandidates[e.election_id]?.length || 0}</td>
                       <td>{e.start_date}</td>
                       <td>{e.end_date}</td>
                     </tr>
@@ -166,35 +190,15 @@ export default function AdminPanel() {
             <h2 className="section-title" style={{ marginTop: '2rem' }}>All Candidates</h2>
             <div className="admin-table-wrap">
               <table className="admin-table">
-                <thead><tr><th>Name</th><th>Party</th><th>Election</th><th>Votes</th></tr></thead>
+                <thead><tr><th>Name</th><th>Party</th><th>Election</th></tr></thead>
                 <tbody>
-                  {Object.values(candidates).flat().map(c => (
+                  {candidates.map(c => (
                     <tr key={c.candidate_id}>
                       <td style={{ fontWeight: 500 }}>{c.name}</td>
                       <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{c.party}</td>
-                      <td style={{ fontSize: 13 }}>{elections.find(e => e.election_id === c.election_id)?.title}</td>
-                      <td><span style={{ fontWeight: 600, color: 'var(--purple)' }}>{c.votes}</span></td>
+                      <td style={{ fontSize: 13 }}>{elections.find(e => e.election_id == c.election_id)?.title}</td>
                     </tr>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {tab === 'voters' && (
-          <div>
-            <h1 className="admin-title">Registered Voters</h1>
-            <div className="admin-table-wrap">
-              <table className="admin-table">
-                <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Mobile</th></tr></thead>
-                <tbody>
-                  <tr>
-                    <td>1</td>
-                    <td style={{ fontWeight: 500 }}>Rewa</td>
-                    <td>rewa@christuniversity.in</td>
-                    <td>9876543210</td>
-                  </tr>
                 </tbody>
               </table>
             </div>

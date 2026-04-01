@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { mockVoters } from '../utils/mockData';
+import { api } from '../utils/api';
 import './Auth.css';
 
 export default function Register() {
@@ -17,28 +17,29 @@ export default function Register() {
     e.preventDefault();
     setError('');
     if (form.password !== form.confirm) return setError('Passwords do not match.');
-    if (!/^[6-9]\d{9}$/.test(form.mobile)) return setError('Enter a valid 10-digit Indian mobile number.');
-    if (mockVoters.find(v => v.email === form.email)) return setError('Email already registered.');
-    if (mockVoters.find(v => v.mobile === form.mobile)) return setError('Mobile number already registered.');
+    if (!/^[6-9]\d{9}$/.test(form.mobile)) return setError('Enter a valid 10-digit mobile number.');
 
     setLoading(true);
-    await new Promise(r => setTimeout(r, 600));
-
-    const newVoter = { voter_id: mockVoters.length + 1, name: form.name, email: form.email, mobile: form.mobile, password: form.password };
-    mockVoters.push(newVoter);
-    login({ ...newVoter, role: 'voter' });
-    navigate('/dashboard');
+    const data = await api.register(form.name, form.email, form.mobile, form.password);
     setLoading(false);
+
+    if (data.success) {
+      login({ ...data, role: 'voter' });
+      navigate('/dashboard');
+    } else {
+      setError(data.message);
+    }
   };
 
   return (
     <div className="auth-page">
       <div className="auth-left">
         <div className="auth-left-inner">
-          <div className="auth-brand">
-            <span className="brand-dot" style={{ width: 32, height: 32, borderRadius: 10 }} />
-            CampusVote
-          </div>
+          <img
+            src="/src/assets/voting-illustration.jpg"
+            alt="Voting illustration"
+            style={{ width: '100%', maxWidth: 380, borderRadius: 16, marginBottom: '1.5rem' }}
+          />
           <h1 className="auth-headline">Join the<br />democratic<br />process.</h1>
           <p className="auth-desc">Register once and vote in all CHRIST University elections securely.</p>
         </div>

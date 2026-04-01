@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { mockVoters, mockAdmin } from '../utils/mockData';
+import { api } from '../utils/api';
 import './Auth.css';
 
 export default function Login() {
@@ -17,37 +17,28 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    await new Promise(r => setTimeout(r, 600));
 
-    if (form.role === 'admin') {
-      if (form.email === mockAdmin.email && form.password === mockAdmin.password) {
-        login({ ...mockAdmin, role: 'admin' });
-        navigate('/admin');
-      } else {
-        setError('Invalid admin credentials.');
-      }
-    } else {
-      const voter = mockVoters.find(v => v.email === form.email && v.password === form.password);
-      if (voter) {
-        login({ ...voter, role: 'voter' });
-        navigate('/dashboard');
-      } else {
-        setError('Invalid email or password.');
-      }
-    }
+    const data = await api.login(form.email, form.password, form.role);
     setLoading(false);
+
+    if (data.success) {
+      login(data);
+      navigate(data.role === 'admin' ? '/admin' : '/dashboard');
+    } else {
+      setError(data.message);
+    }
   };
 
   return (
     <div className="auth-page">
       <div className="auth-left">
         <div className="auth-left-inner">
-          <img 
-  src="/src/assets/image1.jpg" 
-  alt="Voting illustration"
-  style={{ width: '100%', maxWidth: 380, borderRadius: 16, marginBottom: '1.5rem' }}
-/>
-          <h1 className="auth-headline">Your campus,<br />Your voice</h1>
+          <img
+            src="/src/assets/voting-illustration.jpg"
+            alt="Voting illustration"
+            style={{ width: '100%', maxWidth: 380, borderRadius: 16, marginBottom: '1.5rem' }}
+          />
+          <h1 className="auth-headline">Your campus.<br />Your voice.</h1>
           <p className="auth-desc">Secure, transparent elections for CHRIST University students and administrators.</p>
           <div className="auth-stats">
             <div className="auth-stat"><span className="stat-num">5</span><span className="stat-label">Active Elections</span></div>
@@ -84,8 +75,6 @@ export default function Login() {
           </form>
 
           <p className="auth-footer">Don't have an account? <Link to="/register">Register here</Link></p>
-
-         
         </div>
       </div>
     </div>
