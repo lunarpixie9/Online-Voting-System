@@ -124,7 +124,6 @@ export default function AdminPanel() {
               <div className="stat-card"><p className="stat-label">Total Elections</p><p className="stat-val">{elections.length}</p></div>
               <div className="stat-card"><p className="stat-label">Active</p><p className="stat-val">{elections.filter(e => e.status === 'active').length}</p></div>
               <div className="stat-card"><p className="stat-label">Candidates</p><p className="stat-val">{candidates.length}</p></div>
-              <div className="stat-card"><p className="stat-label">Votes Cast</p><p className="stat-val">{totalVotes}</p></div>
             </div>
             <h2 className="section-title">All Elections</h2>
             <div className="admin-table-wrap">
